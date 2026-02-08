@@ -4,9 +4,35 @@
 
 ---
 
-## 1. Keycloak（IDプロバイダー）の設定
+## 1. 前提
+
+### ポート構成
+
+このサンプルでは以下のポート構成を前提とします。
+
+| Role         | Service     | Port   | Base URL                |
+| :----------- | :---------- | :----- | :---------------------- |
+| **Backend**  | Spring Boot | `8080` | `http://localhost:8080` |
+| **Frontend** | Vue.js App  | `8081` | `http://localhost:8081` |
+| **Auth**     | Keycloak    | `8082` | `http://localhost:8082` |
+
+Keycloakはデフォルトで8080を使用しますが、Spring Bootと競合するため `8082` に変更して起動してください。
+Dockerを使用する場合は `docker run -p 8082:8080 ...` のようにマッピングしてください。
+
+### セキュリティパラメータの役割
+
+| パラメータ           | 役割                                     | 検証者       |
+| -------------------- | ---------------------------------------- | ------------ |
+| **`state`**          | CSRF（ログイン強要）攻撃の防止           | **Vue.js**   |
+| **`nonce`**          | リプレイ攻撃（トークンの使い回し）の防止 | **Vue.js**   |
+| **`code_challenge`** | 認可コードの横取り防止（PKCE）           | **Keycloak** |
+
+---
+
+## 2. Keycloak（IDプロバイダー）の設定
 
 Keycloakの管理コンソールで、クライアントを以下のように構成します。
+※以下、Keycloakは `http://localhost:8082` で稼働していると仮定します。
 
 | 設定項目                  | 値                        | 備考                                 |
 | ------------------------- | ------------------------- | ------------------------------------ |
@@ -14,13 +40,13 @@ Keycloakの管理コンソールで、クライアントを以下のように構
 | **Client Protocol**       | `openid-connect`          |                                      |
 | **Access Type**           | `public`                  | ブラウザ実行のためSecretは保持しない |
 | **Standard Flow Enabled** | `ON`                      | 認可コードフローを有効化             |
-| **Valid Redirect URIs**   | `http://localhost:8080/*` | Vueの待ち受けURL                     |
-| **Web Origins**           | `http://localhost:8080`   | CORS許可設定                         |
+| **Valid Redirect URIs**   | `http://localhost:8081/*` | Vueの待ち受けURL                     |
+| **Web Origins**           | `http://localhost:8081`   | CORS許可設定                         |
 | **PKCE Challenge Method** | `S256`                    | **必須設定** (Advancedタブ内)        |
 
 ---
 
-## 2. Vue.js (Frontend) 実装
+## 3. Vue.js (Frontend) 実装
 
 `oidc-client-ts` を使用します。このライブラリは、設定を行うだけで `state`, `nonce`, `code_challenge` の生成・検証を自動で行います。
 
@@ -37,9 +63,9 @@ npm install oidc-client-ts
 import { UserManager, WebStorageStateStore } from "oidc-client-ts";
 
 const settings = {
-  authority: "http://<keycloak-url>/realms/<realm-name>",
+  authority: "http://localhost:8082/realms/<realm-name>", // 例: http://localhost:8082/realms/myrealm
   client_id: "vue-client",
-  redirect_uri: "http://localhost:8080/callback",
+  redirect_uri: "http://localhost:8081/callback",
   response_type: "code", // 認可コードフロー + PKCE を指定
   scope: "openid profile email",
   userStore: new WebStorageStateStore({ store: window.localStorage }),
@@ -57,7 +83,7 @@ export const handleCallback = () => userManager.signinRedirectCallback();
 
 ---
 
-## 3. Spring Boot (Backend) 実装
+## 4. Spring Boot (Backend) 実装
 
 バックエンドは「リソースサーバー」として動作させ、Vueから送られてくる `access_token` (JWT) の正当性を検証します。
 
@@ -76,7 +102,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://<keycloak-url>/realms/<realm-name>
+          issuer-uri: http://localhost:8082/realms/<realm-name> # 例: http://localhost:8082/realms/myrealm
 
 ```
 
@@ -102,17 +128,7 @@ public class SecurityConfig {
 
 ---
 
-## 🔐 セキュリティパラメータの役割まとめ
-
-| パラメータ           | 役割                                     | 検証者       |
-| -------------------- | ---------------------------------------- | ------------ |
-| **`state`**          | CSRF（ログイン強要）攻撃の防止           | **Vue.js**   |
-| **`nonce`**          | リプレイ攻撃（トークンの使い回し）の防止 | **Vue.js**   |
-| **`code_challenge`** | 認可コードの横取り防止（PKCE）           | **Keycloak** |
-
----
-
-## 4. 処理フロー確認
+## 5. 処理フロー確認
 
 1. **認可リクエスト**: Vueが `state`, `nonce`, `code_challenge` を生成しKeycloakへリダイレクト。
 2. **ログイン**: ユーザーがKeycloak上で認証。
