@@ -54,7 +54,8 @@ npm run dev
 oidc-client/
 ├── src/
 │   ├── services/
-│   │   └── oidcService.ts      # OIDC認証サービス
+│   │   ├── oidcService.ts      # OIDC認証サービス
+│   │   └── apiService.ts       # バックエンドAPI呼び出しサービス
 │   ├── views/
 │   │   ├── Home.vue            # ホームページ（ログイン画面）
 │   │   ├── Callback.vue        # OIDC コールバック処理
@@ -90,11 +91,49 @@ oidc-client/
 - **グラデーション**: 鮮やかなグラデーション
 - **アニメーション**: スムーズなトランジションとホバーエフェクト
 
-## 🧪 バックエンドAPIのテスト
+## 🧪 バックエンドAPIとの連携
 
-ダッシュボードには「バックエンドAPIをテスト」ボタンがあります。これは `http://localhost:8080/api/user` にアクセストークンを付けてリクエストを送信します。
+### API Service
 
-バックエンド（Spring Boot）が起動していない場合はエラーになります。
+`src/services/apiService.ts` は、Spring Bootバックエンド（oidc-server）との通信を管理します。
+
+**利用可能なAPI関数:**
+
+```typescript
+import { 
+  getPublicHello,           // 公開API（認証不要）
+  getProtectedUser,         // ユーザー情報取得（認証必要）
+  getProtectedDashboard,    // ダッシュボードデータ取得（認証必要）
+  getAuthenticated,         // カスタムGETリクエスト
+  postAuthenticated,        // カスタムPOSTリクエスト
+} from './services/apiService';
+```
+
+### ダッシュボードでのテスト
+
+ダッシュボードには以下のAPIテストボタンがあります:
+
+- **🌐 Public API**: 認証不要の公開エンドポイント (`/api/public/hello`)
+- **👤 User API**: ユーザー情報取得 (`/api/protected/user`)
+- **📊 Dashboard API**: ダッシュボードデータ取得 (`/api/protected/dashboard`)
+- **🔍 UserInfo**: KeycloakのUserInfoエンドポイント
+
+バックエンド（Spring Boot）が `http://localhost:8080` で起動している必要があります。
+
+### API呼び出しの例
+
+```typescript
+// 公開APIの呼び出し
+const publicData = await getPublicHello();
+console.log(publicData);
+
+// 認証が必要なAPIの呼び出し
+const userData = await getProtectedUser();
+console.log(userData.username, userData.email);
+
+// カスタムエンドポイントへのアクセス
+const customData = await getAuthenticated('/api/custom/endpoint');
+```
 
 ## 📚 使用技術
 

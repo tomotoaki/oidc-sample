@@ -44,9 +44,15 @@
             </code>
           </div>
 
-          <div class="flex gap-md mt-lg justify-center">
-            <button @click="testApi" class="btn btn-primary" :disabled="apiLoading">
-              🚀 API Test
+          <div class="flex gap-md mt-lg justify-center flex-wrap">
+            <button @click="testPublicApi" class="btn btn-secondary" :disabled="apiLoading">
+              🌐 Public API
+            </button>
+            <button @click="testProtectedUser" class="btn btn-primary" :disabled="apiLoading">
+              👤 User API
+            </button>
+            <button @click="testProtectedDashboard" class="btn btn-primary" :disabled="apiLoading">
+              📊 Dashboard API
             </button>
             <button @click="handleGetUserInfo" class="btn btn-secondary" :disabled="userInfoLoading">
               🔍 UserInfo
@@ -86,7 +92,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { getUser, logout, getAccessToken, fetchUserInfo } from '../services/oidcService';
+import { getUser, logout, fetchUserInfo } from '../services/oidcService';
+import { getPublicHello, getProtectedUser, getProtectedDashboard } from '../services/apiService';
 import type { User } from 'oidc-client-ts';
 
 const router = useRouter();
@@ -137,35 +144,49 @@ const goHome = () => {
   router.push('/');
 };
 
-const testApi = async () => {
+const testPublicApi = async () => {
   apiLoading.value = true;
   apiResponse.value = null;
   apiError.value = null;
 
   try {
-    const token = await getAccessToken();
-    
-    if (!token) {
-      throw new Error('アクセストークンが見つかりません');
-    }
-
-    // バックエンドAPIを呼び出し (例: http://localhost:8080/api/user)
-    const response = await fetch('http://localhost:8080/api/user', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
+    const data = await getPublicHello();
     apiResponse.value = JSON.stringify(data, null, 2);
   } catch (error) {
-    console.error('API call failed:', error);
-    apiError.value = error instanceof Error ? error.message : 'APIの呼び出しに失敗しました';
+    console.error('Public API call failed:', error);
+    apiError.value = error instanceof Error ? error.message : '公開APIの呼び出しに失敗しました';
+  } finally {
+    apiLoading.value = false;
+  }
+};
+
+const testProtectedUser = async () => {
+  apiLoading.value = true;
+  apiResponse.value = null;
+  apiError.value = null;
+
+  try {
+    const data = await getProtectedUser();
+    apiResponse.value = JSON.stringify(data, null, 2);
+  } catch (error) {
+    console.error('Protected User API call failed:', error);
+    apiError.value = error instanceof Error ? error.message : 'ユーザーAPIの呼び出しに失敗しました';
+  } finally {
+    apiLoading.value = false;
+  }
+};
+
+const testProtectedDashboard = async () => {
+  apiLoading.value = true;
+  apiResponse.value = null;
+  apiError.value = null;
+
+  try {
+    const data = await getProtectedDashboard();
+    apiResponse.value = JSON.stringify(data, null, 2);
+  } catch (error) {
+    console.error('Protected Dashboard API call failed:', error);
+    apiError.value = error instanceof Error ? error.message : 'ダッシュボードAPIの呼び出しに失敗しました';
   } finally {
     apiLoading.value = false;
   }
