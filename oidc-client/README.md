@@ -1,46 +1,42 @@
-# 🛡️ OIDC Client - Frontend Sample Application
+# OIDC Client (Frontend)
 
-このアプリケーションは、OpenID Connect (OIDC) 認証のフロントエンドサンプルです。**Authorization Code Flow with PKCE** を使用して、セキュアな認証を実装しています。
+OIDC認証のフロントエンドサンプルです。Authorization Code Flow with PKCEを使用します。
 
-## ✨ 特徴
+## 前提条件
 
-- **Vue 3 + TypeScript**: 最新のVue.jsとTypeScriptで構築
-- **PKCE対応**: 認可コードの横取り攻撃を防止
-- **State & Nonce**: CSRF攻撃とリプレイ攻撃を防止
-- **モダンUI**: グラスモーフィズム、グラデーション、アニメーションを活用したプレミアムデザイン
-- **oidc-client-ts**: セキュリティパラメータの自動生成・検証
+- Node.js 18以上
+- Keycloak が `http://localhost:8082` で稼働していること
 
-## 🚀 セットアップ
+## セットアップ
 
-### 1. 依存関係のインストール
+1. 依存関係のインストール
 
 ```bash
 npm install
 ```
 
-### 2. Keycloakの設定
+2. Keycloakのクライアント設定
 
-Keycloakを `http://localhost:8082` で起動し、以下の設定を行ってください:
+- Client ID: `oidc-client`
+- Client Protocol: `openid-connect`
+- Client authentication: `ON` (Confidential)
+- Standard Flow Enabled: `ON`
+- Valid Redirect URIs: `http://localhost:8081/*`
+- Post Logout Redirect URIs: `http://localhost:8081/`
+- Web Origins: `http://localhost:8081`
+- PKCE Challenge Method: `S256` (Advancedタブ)
 
-| 設定項目                  | 値                        |
-| ------------------------- | ------------------------- |
-| **Client ID**             | `vue-client`              |
-| **Client Protocol**       | `openid-connect`          |
-| **Access Type**           | `public`                  |
-| **Standard Flow Enabled** | `ON`                      |
-| **Valid Redirect URIs**   | `http://localhost:8081/*` |
-| **Web Origins**           | `http://localhost:8081`   |
-| **PKCE Challenge Method** | `S256` (Advancedタブ内)   |
+3. OIDC設定の更新
 
-### 3. OIDC設定の更新
-
-`src/services/oidcService.ts` の `authority` を、Keycloakのrealm URLに合わせて更新してください:
+`src/services/oidcService.ts` の `authority` と `client_secret` を実環境に合わせて更新してください。
 
 ```typescript
-authority: "http://localhost:8082/realms/myrealm", // 実際のrealm名に変更
+authority: "http://localhost:8082/realms/myrealm",
+client_id: "oidc-client",
+client_secret: "...",
 ```
 
-### 4. 開発サーバーの起動
+## 起動方法
 
 ```bash
 npm run dev
@@ -48,111 +44,36 @@ npm run dev
 
 アプリケーションは `http://localhost:8081` で起動します。
 
-## 📁 プロジェクト構成
+## API連携
+
+`src/services/apiService.ts` を通じて、バックエンド（oidc-server）へアクセスします。
+
+- 公開API: `GET /api/public/hello`
+- 保護API: `GET /api/protected/user` / `GET /api/protected/dashboard`
+
+## プロジェクト構成
 
 ```
 oidc-client/
 ├── src/
 │   ├── services/
-│   │   ├── oidcService.ts      # OIDC認証サービス
-│   │   └── apiService.ts       # バックエンドAPI呼び出しサービス
+│   │   ├── oidcService.ts
+│   │   └── apiService.ts
 │   ├── views/
-│   │   ├── Home.vue            # ホームページ（ログイン画面）
-│   │   ├── Callback.vue        # OIDC コールバック処理
-│   │   └── Dashboard.vue       # ダッシュボード（認証後）
+│   │   ├── Home.vue
+│   │   ├── Callback.vue
+│   │   └── Dashboard.vue
 │   ├── router/
-│   │   └── index.ts            # Vue Router設定
-│   ├── App.vue                 # メインアプリケーション
-│   ├── main.ts                 # エントリーポイント
-│   └── style.css               # グローバルスタイル
+│   │   └── index.ts
+│   ├── App.vue
+│   ├── main.ts
+│   └── style.css
 ├── index.html
 ├── package.json
 ├── vite.config.ts
 └── tsconfig.json
 ```
 
-## 🔐 認証フロー
+## 補足
 
-1. **ログイン開始**: ユーザーが「ログイン」ボタンをクリック
-2. **認可リクエスト**: `state`, `nonce`, `code_challenge` を生成してKeycloakへリダイレクト
-3. **ユーザー認証**: Keycloakでユーザーがログイン
-4. **認可コード返却**: Keycloakが認可コードと `state` を返却
-5. **トークン交換**: `code` と `code_verifier` を送信してアクセストークンを取得
-6. **検証**: `state`, `nonce`, PKCEが自動検証される
-7. **ダッシュボード**: 認証成功後、ユーザー情報を表示
-
-## 🎨 デザインシステム
-
-このアプリケーションは、以下のデザイン原則に基づいています:
-
-- **カラーパレット**: HSLベースの調和のとれた配色
-- **タイポグラフィ**: Google Fonts (Inter)
-- **グラスモーフィズム**: 半透明の背景とぼかし効果
-- **グラデーション**: 鮮やかなグラデーション
-- **アニメーション**: スムーズなトランジションとホバーエフェクト
-
-## 🧪 バックエンドAPIとの連携
-
-### API Service
-
-`src/services/apiService.ts` は、Spring Bootバックエンド（oidc-server）との通信を管理します。
-
-**利用可能なAPI関数:**
-
-```typescript
-import { 
-  getPublicHello,           // 公開API（認証不要）
-  getProtectedUser,         // ユーザー情報取得（認証必要）
-  getProtectedDashboard,    // ダッシュボードデータ取得（認証必要）
-  getAuthenticated,         // カスタムGETリクエスト
-  postAuthenticated,        // カスタムPOSTリクエスト
-} from './services/apiService';
-```
-
-### ダッシュボードでのテスト
-
-ダッシュボードには以下のAPIテストボタンがあります:
-
-- **🌐 Public API**: 認証不要の公開エンドポイント (`/api/public/hello`)
-- **👤 User API**: ユーザー情報取得 (`/api/protected/user`)
-- **📊 Dashboard API**: ダッシュボードデータ取得 (`/api/protected/dashboard`)
-- **🔍 UserInfo**: KeycloakのUserInfoエンドポイント
-
-バックエンド（Spring Boot）が `http://localhost:8080` で起動している必要があります。
-
-### API呼び出しの例
-
-```typescript
-// 公開APIの呼び出し
-const publicData = await getPublicHello();
-console.log(publicData);
-
-// 認証が必要なAPIの呼び出し
-const userData = await getProtectedUser();
-console.log(userData.username, userData.email);
-
-// カスタムエンドポイントへのアクセス
-const customData = await getAuthenticated('/api/custom/endpoint');
-```
-
-## 📚 使用技術
-
-- **Vue 3**: プログレッシブJavaScriptフレームワーク
-- **TypeScript**: 型安全性
-- **Vite**: 高速ビルドツール
-- **Vue Router**: ルーティング
-- **oidc-client-ts**: OIDC認証ライブラリ
-
-## 🔧 ビルド
-
-本番用ビルドを作成:
-
-```bash
-npm run build
-```
-
-ビルドされたファイルは `dist/` ディレクトリに出力されます。
-
-## 📝 ライセンス
-
-このサンプルアプリケーションはMITライセンスです。
+全体の手順はルートの `SETUP_GUIDE.md` も参照してください。
