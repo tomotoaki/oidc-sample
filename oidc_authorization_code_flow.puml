@@ -1,0 +1,186 @@
+@startuml OIDC Authorization Code Flow with PKCE
+
+actor User as user
+participant "Vue.js Client\n(oidc-client-ts)" as vue #LightBlue
+participant "Spring Boot Server\n(Resource Server)" as spring #Orange
+participant "Keycloak\n(Authorization Server)" as keycloak #LightGreen
+
+== 1. ログイン開始 ==
+user -> vue: ログインボタンクリック
+activate vue
+vue -> vue: code_verifier を生成 (ランダム文字列)
+vue -> vue: code_challenge = SHA256(code_verifier)
+vue -> vue: state を生成 (CSRF対策)
+vue -> vue: nonce を生成 (リプレイ攻撃対策)
+note right of vue
+ oidc-client-ts が自動生成:
+ - code_verifier (43-128文字)
+ - code_challenge (SHA256ハッシュ)
+ - state (ランダム値)
+ - nonce (ランダム値)
+end note
+
+vue -> user: Keycloakの認可エンドポイントへリダイレクト
+note left
+ パラメータ:
+ - response_type=code
+ - client_id=oidc-client
+ - redirect_uri=http://localhost:8081/callback
+ - scope=openid profile email
+ - state={state}
+ - nonce={nonce}
+ - code_challenge={code_challenge}
+ - code_challenge_method=S256
+end note
+deactivate vue
+
+== 2. ユーザー認証 ==
+user -> keycloak: 認可エンドポイントへアクセス\nGET /realms/myrealm/protocol/openid-connect/auth
+activate keycloak
+keycloak -> user: ログイン画面を表示
+user -> keycloak: 認証情報を入力 (username, password)
+keycloak -> keycloak: ユーザー認証実行
+keycloak -> keycloak: code_challenge と state を保存
+
+== 3. 認可コード発行 ==
+keycloak -> user: コールバックURLへリダイレクト
+note right
+ http://localhost:8081/callback
+ ?code={authorization_code}
+ &state={state}
+end note
+deactivate keycloak
+
+user -> vue: コールバックURLへアクセス
+activate vue
+note right of vue
+ Callback.vueコンポーネントが処理
+ - handleCallback() を実行
+end note
+
+== 4. トークン取得 ==
+vue -> vue: state を検証 (保存値と一致確認)
+vue -> keycloak: トークンエンドポイントへPOST\n/realms/myrealm/protocol/openid-connect/token
+activate keycloak
+note left
+ パラメータ:
+ - grant_type=authorization_code
+ - code={authorization_code}
+ - redirect_uri=http://localhost:8081/callback
+ - client_id=oidc-client
+ - client_secret={client_secret}
+ - code_verifier={code_verifier}
+end note
+
+keycloak -> keycloak: code_verifier を検証\nSHA256(code_verifier) == code_challenge
+keycloak -> keycloak: 認可コードの有効性を確認
+keycloak -> keycloak: JWTトークンを生成
+
+keycloak -> vue: アクセストークン、IDトークンを返却
+deactivate keycloak
+note right
+ {
+   "access_token": "eyJhbGc...",
+   "id_token": "eyJhbGc...",
+   "token_type": "Bearer",
+   "expires_in": 300
+ }
+end note
+
+vue -> vue: nonce を検証 (IDトークン内のnonceが一致)
+vue -> vue: トークンをLocalStorageに保存
+vue -> user: ダッシュボードへリダイレクト
+deactivate vue
+
+== 5. ユーザー情報取得 ==
+user -> vue: ユーザー情報を表示
+activate vue
+vue -> vue: LocalStorageからアクセストークンを取得
+vue -> keycloak: UserInfoエンドポイントへリクエスト\nGET /realms/myrealm/protocol/openid-connect/userinfo\nAuthorization: Bearer {access_token}
+activate keycloak
+note right of keycloak
+ oidcService.ts の
+ fetchUserInfo() を実行
+end note
+
+keycloak -> keycloak: アクセストークンを検証
+keycloak -> keycloak: ユーザー情報を取得
+
+keycloak -> vue: ユーザー情報を返却
+deactivate keycloak
+note left of vue
+ {
+   "sub": "user-uuid",
+   "name": "John Doe",
+   "email": "john@example.com",
+   "preferred_username": "john.doe"
+ }
+end note
+
+vue -> user: ユーザー情報を表示
+deactivate vue
+
+== 6. リソースへのアクセス ==
+user -> vue: 保護されたAPIを呼び出し
+activate vue
+vue -> vue: LocalStorageからアクセストークンを取得
+vue -> spring: API呼び出し\nGET /api/protected/data\nAuthorization: Bearer {access_token}
+activate spring
+note right of spring
+ SecurityConfig.java で設定:
+ - oauth2ResourceServer()
+ - jwt() 検証
+end note
+
+spring -> spring: JWTの署名を検証
+spring -> keycloak: JWKSエンドポイントから公開鍵を取得\n(初回のみ、以降はキャッシュ)
+activate keycloak
+keycloak -> spring: 公開鍵を返却
+deactivate keycloak
+
+spring -> spring: JWTの有効期限を確認
+spring -> spring: JWTのissuer, audienceを検証
+spring -> spring: スコープ・権限を確認
+
+spring -> vue: リソースデータを返却
+deactivate spring
+note left
+ {
+   "message": "Protected data",
+   "user": "john.doe"
+ }
+end note
+
+vue -> user: データを表示
+deactivate vue
+
+== 7. ログアウト ==
+user -> vue: ログアウトボタンクリック
+activate vue
+vue -> vue: LocalStorageからIDトークンを取得
+vue -> user: Keycloakのログアウトエンドポイントへリダイレクト
+note right
+ パラメータ:
+ - id_token_hint={id_token}
+ - post_logout_redirect_uri=http://localhost:8081/
+end note
+deactivate vue
+
+user -> keycloak: ログアウトエンドポイントへアクセス\nGET /realms/myrealm/protocol/openid-connect/logout
+activate keycloak
+keycloak -> keycloak: セッションを無効化
+keycloak -> keycloak: トークンを失効
+
+keycloak -> user: ログアウト後のリダイレクトURIへリダイレクト
+deactivate keycloak
+note right
+ http://localhost:8081/
+end note
+
+user -> vue: ホームページへアクセス
+activate vue
+vue -> vue: LocalStorageからトークンを削除
+vue -> user: ログイン前の画面を表示
+deactivate vue
+
+@enduml

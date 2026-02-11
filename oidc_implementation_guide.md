@@ -140,3 +140,40 @@ public class SecurityConfig {
 5. **検証**: KeycloakがPKCEの一致を確認し、アクセストークンを返却。
 6. **APIコール**: Vueが `Authorization: Bearer <token>` を付けてSpring Bootへリクエスト。
 7. **トークン検証**: Spring BootがJWTの署名を検証。
+
+---
+
+## 6. OIDC認可コードフロー with PKCEシーケンス図
+
+実装ベースの詳細なシーケンス図は以下の通りです。
+
+![OIDC Authorization Code Flow](oidc_authorization_code_flow.puml)
+
+### シーケンスのポイント
+
+#### **1. PKCE (Proof Key for Code Exchange)**
+- **code_verifier**: クライアントが生成するランダム文字列（43-128文字）
+- **code_challenge**: code_verifierのSHA256ハッシュ値
+- 認可リクエスト時に `code_challenge` を送信し、トークン取得時に `code_verifier` を送信
+- Keycloakが検証: `SHA256(code_verifier)` == `code_challenge`
+- これにより、認可コードを傍受されても、code_verifierがなければトークンを取得できない
+
+#### **2. State (CSRF対策)**
+- クライアントが生成したランダム値を認可リクエストに含める
+- 認可コードと共に返却される
+- クライアント側で元の値と一致するか検証
+- CSRF攻撃やログイン強要攻撃を防止
+
+#### **3. Nonce (リプレイ攻撃対策)**
+- クライアントが生成したランダム値を認可リクエストに含める
+- IDトークン内に含まれて返却される
+- クライアント側で元の値と一致するか検証
+- トークンの使い回しを防止
+
+#### **4. JWT検証 (リソースサーバー側)**
+- Spring Bootは受信したJWTを検証
+  - 署名の正当性 (Keycloakの公開鍵で検証)
+  - 有効期限 (`exp` クレーム)
+  - 発行者 (`iss` クレーム)
+  - オーディエンス (`aud` クレーム)
+- 検証に成功した場合のみリソースへのアクセスを許可
