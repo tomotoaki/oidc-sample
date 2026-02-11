@@ -4,8 +4,8 @@
 
 ## 📋 前提条件
 
-- Java 17以上
-- Gradle 8.x以上
+- Java 21以上
+- Gradle 9.x以上
 - Keycloak が `http://localhost:8082` で稼働していること
 
 ## 🚀 起動方法

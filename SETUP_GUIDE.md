@@ -5,7 +5,7 @@
 ## 📋 前提条件
 
 - Node.js (v18以上)
-- Java 17以上 (Spring Boot用)
+- Java 21以上 (Spring Boot 4.x用)
 - Docker (Keycloak用、またはローカルインストール)
 
 ## 🏗️ アーキテクチャ概要
