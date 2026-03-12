@@ -1,0 +1,35 @@
+server:
+  port: 8090
+  address: 127.0.0.1
+
+spring:
+  application:
+    name: exchange-server
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8082/realms/myrealm
+
+# CORS設定
+cors:
+  allowed-origins: http://127.0.0.1:8091,http://localhost:8081
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-headers: "*"
+  allow-credentials: true
+
+# Token Exchange設定
+token-exchange:
+  keycloak:
+    token-endpoint: http://localhost:8082/realms/myrealm/protocol/openid-connect/token
+    client-id: exchange-server
+    client-secret: PaPr2YNiEzcC8YkcrtMQsKPwAs3IrWQ0
+    # Standard Token Exchangeではaudienceパラメータ不要
+    # audience: exchange-server
+
+# ログ設定
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+    com.example.exchangeserver: DEBUG

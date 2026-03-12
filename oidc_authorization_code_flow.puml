@@ -1,5 +1,11 @@
 @startuml OIDC Authorization Code Flow with PKCE
 
+' このPlantUMLファイルは、OIDC認証フローの詳細なシーケンス図です。
+' QUICKSTART.mdの「4-3. OIDC認証フロー（詳細版）」にMermaid形式で埋め込まれています。
+' PlantUML形式で表示したい場合は、以下のツールを使用してください：
+' - VS Code拡張: PlantUML
+' - オンライン: https://www.plantuml.com/plantuml/uml/
+
 actor User as user
 participant "Vue.js Client\n(oidc-client-ts)" as vue #LightBlue
 participant "Spring Boot Server\n(Resource Server)" as spring #Orange
